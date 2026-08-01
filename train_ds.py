@@ -24,6 +24,7 @@ from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
                          DEFAULT_IMAGE_PATCH_TOKEN)
 from utils.matcher import match_pred
 from utils.multi_reason_seg_val_dataset import MultiReasonSegValDataset
+from utils.earth_reason_dataset import EarthReasonDataset, EarthReasonValDataset #Added EarthReason
 
 import requests
 import json
@@ -54,9 +55,9 @@ def parse_args(args):
     parser.add_argument("--load_in_4bit", action="store_true", default=False)
 
     parser.add_argument(
-        "--dataset", default="sem_seg||refer_seg||vqa||reason_seg", type=str
-    )
-    parser.add_argument("--sample_rates", default="9,3,3,1", type=str)
+        "--dataset", default="sem_seg||refer_seg||vqa||reason_seg||earth_reason", type=str
+    ) #Added EarthReason
+    parser.add_argument("--sample_rates", default="9,3,3,1,1", type=str) #Added EarthReason
     parser.add_argument(
         "--sem_seg_data",
         default="ade20k||cocostuff||pascal_part||paco_lvis||mapillary",
@@ -67,6 +68,7 @@ def parse_args(args):
     )
     parser.add_argument("--vqa_data", default="llava_instruct_150k", type=str)
     parser.add_argument("--reason_seg_data", default="ReasonSeg|train", type=str)
+    parser.add_argument("--earth_reason_data", default="EarthReason|train", type=str) #Added EarthReason
     parser.add_argument("--val_dataset", default="ReasonSeg|val", type=str)
     parser.add_argument("--dataset_dir", default="./dataset", type=str)
     parser.add_argument("--log_base_dir", default="./runs", type=str)
@@ -330,6 +332,7 @@ def main(args):
         masks_process_with_clip=args.masks_process_with_clip,
         preprocessor_config=args.preprocessor_config,
         use_expand_question_list=args.use_expand_question_list,
+        earth_reason_data=args.earth_reason_data, #Added EarthReason
 
     )
     print("____seg_token_num in data:________: ", args.seg_token_num*args.image_feature_scale_num)
@@ -337,7 +340,9 @@ def main(args):
     if args.no_eval == False:
         token_num = args.seg_token_num*args.image_feature_scale_num 
         if len(args.val_dataset.split('||')) == 1:
-            if args.val_dataset.split('|')[0] == 'MultiReasonSeg':
+            if args.val_dataset.split('|')[0] == 'EarthReason': #AddedEarthReason
+                ValDataset_type = EarthReasonValDataset
+            elif args.val_dataset.split('|')[0] == 'MultiReasonSeg':
                 ValDataset_type = MultiReasonSegValDataset
             else:   
                 ValDataset_type = ValDataset
@@ -362,7 +367,9 @@ def main(args):
             val_dataset_names = args.val_dataset.split('||')
             val_dataset = []
             for val_dataset_name in val_dataset_names:
-                if val_dataset_name.split('|')[0] == 'MultiReasonSeg':
+                if val_dataset_name.split('|')[0] == 'EarthReason': #Added EarthReason
+                    ValDataset_type = EarthReasonValDataset
+                elif val_dataset_name.split('|')[0] == 'MultiReasonSeg':
                     ValDataset_type = MultiReasonSegValDataset
                 else:   
                     ValDataset_type = ValDataset
