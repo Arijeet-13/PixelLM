@@ -676,11 +676,13 @@ def train(
             mask_losses.reset()
 
 
-        if global_step != 0:
-            curr_lr = scheduler.get_last_lr()
-            if args.local_rank == 0:
-                writer.add_scalar("train/lr", curr_lr[0], global_step)
-
+        if global_step != 0: #Added to remove errors
+            try:
+                curr_lr = scheduler.get_last_lr()
+                if args.local_rank == 0:
+                    writer.add_scalar("train/lr", curr_lr[0], global_step)
+            except AssertionError:
+                pass 
     return train_iter
 
 
