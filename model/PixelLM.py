@@ -554,6 +554,9 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
 
             
             pred_masks.append(pred_mask[:, 0])
+            if self.local_rank == 0:
+                print(f"pred_mask stats: min={pred_mask.min().item():.2f} max={pred_mask.max().item():.2f} "
+                    f"has_nan={torch.isnan(pred_mask).any().item()} has_inf={torch.isinf(pred_mask).any().item()}")
             mask_score = (pred_mask[:, 0].sigmoid().flatten(1) * (pred_mask[:, 0] > 0).flatten(1)).sum(1) / ((pred_mask[:, 0] > 0).flatten(1).sum(1) + 1e-6)
             mask_scores.append(mask_score)
 
