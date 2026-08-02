@@ -554,12 +554,6 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
 
             
             pred_masks.append(pred_mask[:, 0])
-            if self.local_rank == 0: #Fix for NaN Error
-                if pred_mask.numel() == 0:
-                    print(f"pred_mask stats: EMPTY (shape={tuple(pred_mask.shape)}) -- skipping min/max")
-                else:
-                    print(f"pred_mask stats: min={pred_mask.min().item():.2f} max={pred_mask.max().item():.2f} "
-                    f"has_nan={torch.isnan(pred_mask).any().item()} has_inf={torch.isinf(pred_mask).any().item()}") #Fix for NaN error.
             mask_score = (pred_mask[:, 0].sigmoid().flatten(1) * (pred_mask[:, 0] > 0).flatten(1)).sum(1) / ((pred_mask[:, 0] > 0).flatten(1).sum(1) + 1e-6)
             mask_scores.append(mask_score)
 
@@ -595,28 +589,14 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
                 gt_mask.shape, pred_mask.shape
             )
              
-            mask_bce_loss += ( #Fix due to Nan Error.
-                sigmoid_ce_loss(pred_mask.float(), gt_mask.float(), num_masks=gt_mask.shape[0])
+            mask_bce_loss += (
+                sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
                 * gt_mask.shape[0]
             )
             mask_dice_loss += (
-                dice_loss(pred_mask.float(), gt_mask.float(), num_masks=gt_mask.shape[0])
+                dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
                 * gt_mask.shape[0]
             )
-            # mask_bce_loss += ( Fix due to Nan Error
-            #     sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
-            #     * gt_mask.shape[0]
-            # )
-            # mask_dice_loss += (
-            #     dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
-            #     * gt_mask.shape[0]
-            # )
-            if self.local_rank == 0 and gt_mask.shape[0] > 0: #Fix For NaN
-                _bce = sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
-                _dice = dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
-                print(f"batch_idx={batch_idx} gt_mask shape={tuple(gt_mask.shape)} dtype={gt_mask.dtype} "
-                    f"gt_mask min/max={gt_mask.min().item():.2f}/{gt_mask.max().item():.2f} "
-                    f"bce={_bce.item():.4f} dice={_dice.item():.4f}") #Fix For NaN
             # mask_overlap_loss += (
             #         overlap_loss(pred_mask, gt_mask, gt_mask.shape[0], batch_seg_token_count)
             #         * gt_mask.shape[0]
