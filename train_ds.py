@@ -418,7 +418,15 @@ def main(args):
         },
         "fp16": {
             "enabled": args.precision == "fp16",
+            "loss_scale": 0,              # 0 = dynamic scaling (auto-adjusts) Added due to errors
+            "initial_scale_power": 16,    # starting scale = 2^16; DeepSpeed will adjust down if it overflows
+            "loss_scale_window": 1000,    # steps between scale increase attempts
+            "hysteresis": 2,              # consecutive overflow tolerance before scaling down
+            "min_loss_scale": 1,
         },
+        # "fp16": {
+        #     "enabled": args.precision == "fp16",
+        # },
         "bf16": {
             "enabled": args.precision == "bf16",
         },
