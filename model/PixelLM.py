@@ -189,7 +189,9 @@ class PixelLMMetaModel:
                 ),
                 LayerNorm2d(out_chans),
             )
-
+            self.prompt_encoder = self.prompt_encoder.float() #Added to remove the NaN errors
+            self.mask_decoder = self.mask_decoder.float()
+            self.image_feature_neck = self.image_feature_neck.float()
         else:
             self.visual_model = build_sam_vit_h(self.vision_pretrained)
             for param in self.visual_model.parameters():
@@ -503,9 +505,10 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
          
         for i in range(len(pred_embeddings)):
             if self.vision_tower_for_mask:
-                sparse_embeddings, dense_embeddings = self.model.prompt_encoder(points=None, boxes=None,masks=None,text_embeds=pred_embeddings[i],) #sparse_embeddings:N, Lev, 256
-                sparse_embeddings = sparse_embeddings.to(pred_embeddings[i].dtype)
-                _img_embeddings = self.model.image_feature_neck(single_img_embeddings[i]) #[Lev, 4096, 32, 32]
+                sparse_embeddings, dense_embeddings = self.model.prompt_encoder(points=None, boxes=None,masks=None,text_embeds=pred_embeddings[i].float(),) #sparse_embeddings:N, Lev, 256 Added Float to remove nan errors
+                sparse_embeddings = sparse_embeddings.float() #Added Float to remove NaN errors
+                #sparse_embeddings = sparse_embeddings.to(pred_embeddings[i].dtype)
+                _img_embeddings = self.model.image_feature_neck(single_img_embeddings[i].float()) #[Lev, 4096, 32, 32] #Added Float
                 out_size = 128
                 low_res_masks = torch.zeros([sparse_embeddings.shape[0], 1, out_size, out_size]).to(_img_embeddings)
                 if self.image_feature_scale_num > 1:
@@ -737,9 +740,10 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
              
             for i in range(len(pred_embeddings)):
                 if self.vision_tower_for_mask:
-                    sparse_embeddings, dense_embeddings = self.model.prompt_encoder(points=None, boxes=None,masks=None,text_embeds=pred_embeddings[i],)
-                    sparse_embeddings = sparse_embeddings.to(pred_embeddings[i].dtype)
-                    _img_embeddings = self.model.image_feature_neck(img_embeddings[i]) 
+                    sparse_embeddings, dense_embeddings = self.model.prompt_encoder(points=None, boxes=None,masks=None,text_embeds=pred_embeddings[i].float(),) #added float to remove nan errors
+                    #sparse_embeddings = sparse_embeddings.to(pred_embeddings[i].dtype)
+                    sparse_embeddings = sparse_embeddings.float() #Added Float to remove NaN errors
+                    _img_embeddings = self.model.image_feature_neck(img_embeddings[i].float()) #Added Float to remove NaN errors
                     out_size = 128
                     low_res_masks = torch.zeros([sparse_embeddings.shape[0], 1, out_size, out_size]).to(_img_embeddings)
                     if self.image_feature_scale_num > 1:
