@@ -595,15 +595,22 @@ class PixelLMForCausalLM(LlavaLlamaForCausalLM):
                 gt_mask.shape, pred_mask.shape
             )
              
-      
-            mask_bce_loss += (
-                sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
+            mask_bce_loss += ( #Fix due to Nan Error.
+                sigmoid_ce_loss(pred_mask.float(), gt_mask.float(), num_masks=gt_mask.shape[0])
                 * gt_mask.shape[0]
             )
             mask_dice_loss += (
-                dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
+                dice_loss(pred_mask.float(), gt_mask.float(), num_masks=gt_mask.shape[0])
                 * gt_mask.shape[0]
             )
+            # mask_bce_loss += ( Fix due to Nan Error
+            #     sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
+            #     * gt_mask.shape[0]
+            # )
+            # mask_dice_loss += (
+            #     dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
+            #     * gt_mask.shape[0]
+            # )
             if self.local_rank == 0 and gt_mask.shape[0] > 0: #Fix For NaN
                 _bce = sigmoid_ce_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
                 _dice = dice_loss(pred_mask, gt_mask, num_masks=gt_mask.shape[0])
