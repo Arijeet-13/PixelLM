@@ -432,13 +432,25 @@ def main(args):
         },
         "gradient_clipping": 1.0,
         "zero_optimization": {
-            "stage": 2,
-            "contiguous_gradients": True,
-            "overlap_comm": True,
-            "reduce_scatter": True,
-            "reduce_bucket_size": 5e8,
-            "allgather_bucket_size": 5e8,
+        "stage": 3,
+        "offload_optimizer": {
+            "device": "cpu",
+            "pin_memory": True
         },
+        "offload_param": {
+            "device": "cpu",
+            "pin_memory": True
+        },
+        "overlap_comm": True,
+        "contiguous_gradients": True,
+        "sub_group_size": 1e9,
+        "reduce_bucket_size": "auto",
+        "stage3_prefetch_bucket_size": "auto",
+        "stage3_param_persistence_threshold": "auto",
+        "stage3_max_live_parameters": 1e9,
+        "stage3_max_reuse_distance": 1e9,
+        "gather_16bit_weights_on_model_save": True
+    }
     }
     model_engine, optimizer, train_loader, scheduler = deepspeed.initialize(
         model=model,
