@@ -25,10 +25,39 @@ from utils.utils import (DEFAULT_IM_END_TOKEN, DEFAULT_IM_START_TOKEN,
 from utils.matcher import match_pred
 from utils.multi_reason_seg_val_dataset import MultiReasonSegValDataset
 from utils.earth_reason_dataset import EarthReasonDataset, EarthReasonValDataset #Added EarthReason
+from utils.liss4_reason_dataset import LISS4ReasonDataset, LISS4ReasonValDataset #Added LISS4Reason
 
 import requests
 import json
 import base64
+
+import os
+import cv2
+import numpy as np
+
+def save_visualization(image_path, pred_mask, gt_mask, save_dir, tag):
+    os.makedirs(save_dir, exist_ok=True)
+    image = cv2.imread(image_path)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    pred_np = (pred_mask.detach().cpu().numpy() > 0).astype(np.uint8) * 255
+    gt_np = (gt_mask.detach().cpu().numpy() > 0).astype(np.uint8) * 255
+
+    # resize masks to match the image if needed
+    h, w = image.shape[:2]
+    pred_np = cv2.resize(pred_np, (w, h), interpolation=cv2.INTER_NEAREST)
+    gt_np = cv2.resize(gt_np, (w, h), interpolation=cv2.INTER_NEAREST)
+
+    pred_overlay = image.copy()
+    pred_overlay[pred_np > 0] = [255, 0, 0]      # red = predicted
+    gt_overlay = image.copy()
+    gt_overlay[gt_np > 0] = [0, 255, 0]          # green = ground truth
+
+    combined = np.concatenate([image, pred_overlay, gt_overlay], axis=1)
+    combined = cv2.cvtColor(combined, cv2.COLOR_RGB2BGR)
+
+    fname = os.path.basename(image_path).split('.')[0]
+    cv2.imwrite(os.path.join(save_dir, f"{fname}_{tag}.png"), combined)
 
 # from azure.identity import DefaultAzureCredential
 def parse_args(args):
@@ -55,9 +84,9 @@ def parse_args(args):
     parser.add_argument("--load_in_4bit", action="store_true", default=False)
 
     parser.add_argument(
-        "--dataset", default="sem_seg||refer_seg||vqa||reason_seg||earth_reason", type=str
-    ) #Added EarthReason
-    parser.add_argument("--sample_rates", default="9,3,3,1,1", type=str) #Added EarthReason
+        "--dataset", default="sem_seg||refer_seg||vqa||reason_seg||earth_reason||liss4_reason", type=str
+    ) #Added EarthReason and liss4reason
+    parser.add_argument("--sample_rates", default="9,3,3,1,1,1", type=str) #Added EarthReason and liss4reason
     parser.add_argument(
         "--sem_seg_data",
         default="ade20k||cocostuff||pascal_part||paco_lvis||mapillary",
@@ -69,6 +98,7 @@ def parse_args(args):
     parser.add_argument("--vqa_data", default="llava_instruct_150k", type=str)
     parser.add_argument("--reason_seg_data", default="ReasonSeg|train", type=str)
     parser.add_argument("--earth_reason_data", default="EarthReason|train", type=str) #Added EarthReason
+    parser.add_argument("--liss4_reason_data", default="LISS4Reason|train", type=str) #Added LISS4Reason
     parser.add_argument("--val_dataset", default="ReasonSeg|val", type=str)
     parser.add_argument("--dataset_dir", default="./dataset", type=str)
     parser.add_argument("--log_base_dir", default="./runs", type=str)
@@ -333,6 +363,7 @@ def main(args):
         preprocessor_config=args.preprocessor_config,
         use_expand_question_list=args.use_expand_question_list,
         earth_reason_data=args.earth_reason_data, #Added EarthReason
+        liss4_reason_data=args.liss4_reason_data, #Added LISS4Reason
 
     )
     print("____seg_token_num in data:________: ", args.seg_token_num*args.image_feature_scale_num)
@@ -342,6 +373,8 @@ def main(args):
         if len(args.val_dataset.split('||')) == 1:
             if args.val_dataset.split('|')[0] == 'EarthReason': #AddedEarthReason
                 ValDataset_type = EarthReasonValDataset
+            elif args.val_dataset.split('|')[0] == 'LISS4Reason': #AddedLISS4Reason
+                ValDataset_type = LISS4ReasonValDataset
             elif args.val_dataset.split('|')[0] == 'MultiReasonSeg':
                 ValDataset_type = MultiReasonSegValDataset
             else:   
@@ -369,6 +402,8 @@ def main(args):
             for val_dataset_name in val_dataset_names:
                 if val_dataset_name.split('|')[0] == 'EarthReason': #Added EarthReason
                     ValDataset_type = EarthReasonValDataset
+                elif val_dataset_name.split('|')[0] == 'LISS4Reason': #Added LISS4Reason
+                    ValDataset_type = LISS4ReasonValDataset
                 elif val_dataset_name.split('|')[0] == 'MultiReasonSeg':
                     ValDataset_type = MultiReasonSegValDataset
                 else:   
@@ -954,6 +989,16 @@ def validate(val_loader, model_engine, epoch, writer, args, logger, val_dataset_
             pred_masks = output_dict["pred_masks"]
             masks_list = output_dict["gt_masks"][0].int()
             output_list = (pred_masks[0] > 0).int()
+            if args.local_rank == 0 and args.vis_save_path:
+                image_path = input_dict["image_paths"][0]
+                for m_idx in range(masks_list.shape[0]):
+                    save_visualization(
+                    image_path,
+                    pred_masks[0][m_idx],
+                    masks_list[m_idx],
+                    args.vis_save_path,
+                    tag=f"{epoch}_{m_idx}",
+                )
             assert len(pred_masks) == 1
 
             intersection, union, acc_iou = 0.0, 0.0, 0.0

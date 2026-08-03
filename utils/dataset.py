@@ -26,6 +26,7 @@ from .sem_seg_dataset import SemSegDataset
 from .vqa_dataset import VQADataset
 from .multi_reason_seg_dataset import MultiReasonSegDataset
 from .earth_reason_dataset import EarthReasonDataset #Added EarthReason
+from .liss4_reason_dataset import LISS4ReasonDataset #Added LISS4Reason
 
 IGNORE_INDEX = -100
 IMAGE_TOKEN_INDEX = -200
@@ -226,6 +227,7 @@ class HybridDataset(torch.utils.data.Dataset):
         preprocessor_config='',
         use_expand_question_list=False,
         earth_reason_data="EarthReason|train", #Added EarthReason
+        liss4_reason_data="LISS4Reason|train", #Added LISS4Reason
 
     ):
         self.pad_train_clip_images = pad_train_clip_images
@@ -346,7 +348,27 @@ class HybridDataset(torch.utils.data.Dataset):
                         use_expand_question_list,
                     )
                 )
-                
+
+            elif dataset == "liss4_reason":
+                self.all_datasets.append(
+                    LISS4ReasonDataset(
+                        base_image_dir,
+                        tokenizer,
+                        vision_tower,
+                        samples_per_epoch,
+                        precision,
+                        image_size,
+                        num_classes_per_sample,
+                        exclude_val,
+                        liss4_reason_data,
+                        num_classes_per_question,
+                        seg_token_num,
+                        pad_train_clip_images,
+                        masks_process_with_clip,
+                        preprocessor_config,
+                        use_expand_question_list,
+                        )
+                )
             elif dataset == "multi_reason_seg":
                 self.all_datasets.append(
                     MultiReasonSegDataset(
